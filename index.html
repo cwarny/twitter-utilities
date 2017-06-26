@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+.links path {
+	stroke: #999;
+	stroke-opacity: 0.3;
+}
+
+.nodes circle {
+	stroke: #fff;
+	stroke-width: 0px;
+	opacity: 0.6;
+}
+
+</style>
+<svg viewBox="0 0 1680 900"></svg>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script>
+
+var margin = {top: 20, right: 10, bottom: 20, left: 10};
+
+var width = 1680 - margin.left - margin.right,
+    height = 900 - margin.top - margin.bottom;
+
+var svg = d3.select("svg")
+	.append("g")
+	.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+var color = d3.scaleOrdinal(d3.schemeCategory10),
+	x = d3.scaleLinear().range([0,width]),
+	y = d3.scaleLinear().range([height,0]);
+
+var parseTime = d3.timeParse("%a %b %e %H:%M:%S %Z %Y");
+
+var line = d3.line()
+	.x(function(d) { return d[0]; })
+	.y(function(d) { return d[1]; });
+
+d3.json("data/g2.json", function(error, graph) {
+	if (error) throw error;
+
+	var start = parseTime(graph.nodes[0].retweeted_status.created_at);
+
+	graph.nodes.forEach(function(n) {
+		n.created_at = parseTime(n.created_at);
+	});
+
+	x.domain(d3.extent(graph.nodes, function(d) { return d.created_at; }));
+	y.domain([0, d3.max(graph.nodes, function(d) { return d.level-1 })]);
+
+	graph.nodes.forEach(function(n) {
+		n.x = x(n.created_at);
+		n.y = y(n.level-1);
+	});
+
+	graph.links.forEach(function(l) {
+		l.source = graph.nodes[l.source];
+		graph.nodes[l.target].source = l.source;
+		l.target = graph.nodes[l.target];
+	});
+
+	var link = svg.append("g")
+			.attr("class", "links")
+		.selectAll("path")
+		.data(graph.links)
+		.enter().append("path")
+			.attr("d", function(d) {
+				return line([[d.source.x,d.source.y],[d.target.x,d.target.y]]);
+			})
+			.attr("fill", "none");
+
+	link.attr("stroke-dasharray", function() {
+			var totalLength = this.getTotalLength();
+			return totalLength + " " + totalLength;
+		})
+		.attr("stroke-dashoffset", function() {
+			return this.getTotalLength();
+		})
+		.transition()
+			.delay(function(d,i) {
+				return (d.target.created_at-start)/500 + d.target.level*1000;
+			})
+			.duration(function(d,i) {
+				return 1000;
+			})
+			.ease(d3.easeLinear)
+			.attr("stroke-dashoffset", 0);
+
+	var node = svg.append("g")
+			.attr("class", "nodes")
+		.selectAll("circle")
+		.data(graph.nodes)
+		.enter().append("circle")
+			.attr("r", 2);
+
+	// node.append("title")
+	// 	.text(function(d) { return d.user.screen_name; });
+
+	node.attr("fill", "none")
+		.transition()
+			.delay(function(d) { return (d.created_at-start)/500 + d.level*1000; })
+			.duration(0)
+			.attr("fill", function(d) { return color(d.user.verified); });
+
+	node.attr("cx", function(d) { return d.source.x || 0; })
+		.attr("cy", function(d) { return d.source.y || height; })
+		.transition()
+		.delay(function(d,i) {
+			return (d.created_at-start)/500 + d.level*1000;
+		})
+		.duration(function(d,i) {
+			return 1000;
+		})
+		.ease(d3.easeLinear)
+		.attr("cx", function(d) { return d.x; })
+		.attr("cy", function(d) { return d.y; });
+});
+
+</script>
