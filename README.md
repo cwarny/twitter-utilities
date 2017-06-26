@@ -104,7 +104,3 @@ The `hashtags`, `media`, `urls`, `user_mentions`, and `symbols` tables (the five
 When the columns `retweeted_status_id` or `quoted_status_id` are populated for a tweet, you should be able to find those tweets referred to in the same table.
 
 Finally, it is possible some tweets or users will be duplicated in these tables.
-
-## Author
-
-cedric.warny@sas.com
